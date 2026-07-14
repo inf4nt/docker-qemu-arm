@@ -1,7 +1,5 @@
 ###############################################
-#
-# install alpine with docker in qemu x86_64
-#
+# install alpine with docker in qemu aarch64
 
 # Wait enough (forever) until a long-time boot
 set timeout -1
@@ -12,22 +10,18 @@ expect "left intact"
 spawn rm -f ./qemukey ./qemukey.pub
 sleep 5
 spawn ssh-keygen -b 2048 -t rsa -N "" -f ./qemukey
-
 expect "\[SHA256\]"
 
 set qemukey [exec cat ./qemukey.pub]
 set answerfile [exec cat ./answerfile]
 
-#
 # install the system
-#
-
 spawn rm -f alpine.img
 spawn qemu-img create -f qcow2 alpine.img $env(DISK_SIZE)
-
 sleep 5
-spawn qemu-system-x86_64 -machine q35 -m 1024 -smp cpus=2 -cpu qemu64 \
-   -drive if=pflash,format=raw,read-only=on,file=$env(PREFIX)/share/qemu/edk2-x86_64-code.fd \
+
+spawn qemu-system-aarch64 -machine virt -m $env(QEMU_RAM) -smp cpus=$env(QEMU_CPUS) -cpu cortex-a72 \
+   -drive if=pflash,format=raw,read-only=on,file=$env(PREFIX)/share/qemu/edk2-aarch64-code.fd \
    -netdev user,id=n1,hostfwd=tcp::2222-:22,net=192.168.50.0/24 -device virtio-net,netdev=n1 \
    -cdrom alpine.iso \
    -nographic alpine.img
@@ -42,13 +36,10 @@ send "root\r"
 
 expect "localhost:~#"
 send "setup-interfaces\r"
-
 expect "\[eth0\]"
 send "\r"
-
 expect "\[dhcp\]"
 send "\r"
-
 expect "\[no\]"
 send "\r"
 
@@ -56,7 +47,7 @@ expect "localhost:~#"
 send "ifup eth0\r"
 
 expect "localhost:~#"
-send "sed -i -E 's/(local kernel_opts)=.*/\\1=\"console=ttyS0\"/' /sbin/setup-disk\r"
+send "sed -i -E 's/(local kernel_opts)=.*/\\1=\"console=ttyAMA0\"/' /sbin/setup-disk\r"
 
 expect "localhost:~#"
 send "vi /root/answerfile\r"
@@ -70,42 +61,32 @@ send [format "%c(" 27]
 sleep 3
 send ":wq\r"
 sleep 3
-
 send "cat /root/answerfile\r"
 sleep 3
 
 expect "localhost:~#"
 send "setup-alpine -f answerfile\r"
-
 expect "password:"
 send "$env(ROOT_PASSWORD)\n"
-
 expect "password:"
 send "$env(ROOT_PASSWORD)\n"
-
 expect "user?"
 send "no\r"
-
 expect "continue?"
 send "y\r"
-
 expect "Please reboot"
 send "halt\r"
 
 sleep 10
-
 # Ctrl-a + x (qemu machine monitor halt)
 send "\x01"
 send "x"
-
 close -i $qemuID
 
-#
 # setup the system
-#
 sleep 5
-spawn qemu-system-x86_64 -machine q35 -m 1024 -smp cpus=2 -cpu qemu64 \
-  -drive if=pflash,format=raw,read-only=on,file=$env(PREFIX)/share/qemu/edk2-x86_64-code.fd \
+spawn qemu-system-aarch64 -machine virt -m $env(QEMU_RAM) -smp cpus=$env(QEMU_CPUS) -cpu cortex-a72 \
+  -drive if=pflash,format=raw,read-only=on,file=$env(PREFIX)/share/qemu/edk2-aarch64-code.fd \
   -netdev user,id=n1,hostfwd=tcp::2222-:22,net=192.168.50.0/24 -device virtio-net,netdev=n1 \
   -nographic alpine.img
 
@@ -113,49 +94,39 @@ set qemuID $spawn_id
 
 expect "login:"
 send "root\r"
-
 expect "Password:"
 send "$env(ROOT_PASSWORD)\n"
 
 expect "#"
-send "apk update && apk add docker ip6tables\r"
+send "fallocate -l 5G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw,pri=-2 0 0' >> /etc/fstab\r"
 
+expect "#"
+send "apk update && apk add docker ip6tables\r"
 expect "#"
 send "service docker start\r"
-
 expect "#"
 send "rc-update add docker\r"
-
 expect "#"
 send "apk add zram-init\r"
 
 # fix broken zram init script
 expect "#"
 send "sed -i -E 's/num_devices=2/num_devices=1/' /etc/conf.d/zram-init\r"
-
 expect "#"
 send "service zram-init start\r"
-
 expect "#"
 send "rc-update add zram-init\r"
 
 expect "#"
 send "mkdir -p /root/.ssh\r"
-
 expect "#"
 send "chmod 700 /root/.ssh\r"
-
 expect "#"
 send "echo $qemukey >> /root/.ssh/authorized_keys\r"
-
 expect "#"
 send "halt\r"
-
 sleep 10
-
 # Ctrl-a + x (qemu machine monitor halt)
 send "\x01"
 send "x"
-
 close -i $qemuID
-
