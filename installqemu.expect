@@ -23,8 +23,9 @@ sleep 5
 spawn qemu-system-aarch64 -machine virt -m $env(QEMU_RAM) -smp cpus=$env(QEMU_CPUS) -cpu cortex-a72 \
    -drive if=pflash,format=raw,read-only=on,file=$env(PREFIX)/share/qemu/edk2-aarch64-code.fd \
    -netdev user,id=n1,hostfwd=tcp::2222-:22,net=192.168.50.0/24 -device virtio-net,netdev=n1 \
+   -drive file=alpine.img,if=virtio,format=qcow2 \
    -cdrom alpine.iso \
-   -nographic alpine.img
+   -nographic
 
 set qemuID $spawn_id
 
@@ -88,7 +89,8 @@ sleep 5
 spawn qemu-system-aarch64 -machine virt -m $env(QEMU_RAM) -smp cpus=$env(QEMU_CPUS) -cpu cortex-a72 \
   -drive if=pflash,format=raw,read-only=on,file=$env(PREFIX)/share/qemu/edk2-aarch64-code.fd \
   -netdev user,id=n1,hostfwd=tcp::2222-:22,net=192.168.50.0/24 -device virtio-net,netdev=n1 \
-  -nographic alpine.img
+  -drive file=alpine.img,if=virtio,format=qcow2 \
+  -nographic
 
 set qemuID $spawn_id
 
