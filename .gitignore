@@ -3,3 +3,7 @@ alpine
 *.cow
 *.img
 qemukey*
+.idea
+*.iws
+*.iml
+*.ipr
